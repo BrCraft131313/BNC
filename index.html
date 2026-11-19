@@ -1,1 +1,135 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BNC TV Broadcast</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+        }
+        #broadcast-screen, #test-card {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+        #test-card {
+            display: none;
+            z-index: 2;
+        }
+        #start-btn {
+            position: fixed;
+            inset: 0;
+            margin: auto;
+            width: fit-content;
+            height: fit-content;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 16px 32px;
+            font-family: monospace;
+            font-size: 18px;
+            border: 2px solid #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="start-btn">بدء البث</button>
+    <video id="broadcast-screen" playsinline></video>
+    <img id="test-card" src="testcard.png" alt="Test Card">
+
+    <script>
+        const video = document.getElementById('broadcast-screen');
+        const testCard = document.getElementById('test-card');
+        const startBtn = document.getElementById('start-btn');
+
+        const folder = 'CONTINUITYS/';
+        let currentIndex = 0;
+        let started = false;
+        let isPlaying = false;
+
+        async function exists(num) {
+            try {
+                const res = await fetch(`${folder}${num}.mp4?t=${Date.now()}`, {
+                    method: 'HEAD',
+                    cache: 'no-store'
+                });
+                return res.ok;
+            } catch {
+                return false;
+            }
+        }
+
+        async function getLatestIndex(from = 1) {
+            let i = from;
+            while (await exists(i)) {
+                i++;
+            }
+            return i - 1;
+        }
+
+        function showTestCard() {
+            isPlaying = false;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            testCard.style.display = 'block';
+        }
+
+        function playIndex(num) {
+            currentIndex = num;
+            isPlaying = true;
+            testCard.style.display = 'none';
+            video.src = `${folder}${num}.mp4?t=${Date.now()}`;
+            video.load();
+            video.play().catch(() => {});
+        }
+
+        video.onended = async () => {
+            const nextExists = await exists(currentIndex + 1);
+            if (nextExists) {
+                playIndex(currentIndex + 1);
+            } else {
+                showTestCard();
+            }
+        };
+
+        video.onerror = () => {
+            showTestCard();
+        };
+
+        startBtn.addEventListener('click', async () => {
+            startBtn.style.display = 'none';
+            started = true;
+            const latest = await getLatestIndex(1);
+            if (latest > 0) {
+                playIndex(latest);
+            } else {
+                showTestCard();
+            }
+        });
+
+        setInterval(async () => {
+            if (!started) return;
+            const latest = await getLatestIndex(currentIndex + 1 || 1);
+            if (latest > currentIndex) {
+                playIndex(latest);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
 
